@@ -57,3 +57,11 @@ export function clearWorkspace() {
     yShapeOrder.delete(0, yShapeOrder.length);
   }, localClientId);
 }
+
+/** Clear all canvas shapes while preserving cells */
+export function clearShapesOnly() {
+  yDoc.transact(() => {
+    yShapes.clear();
+    yShapeOrder.delete(0, yShapeOrder.length);
+  }, localClientId);
+}

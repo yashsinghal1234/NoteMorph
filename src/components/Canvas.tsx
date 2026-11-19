@@ -721,7 +721,13 @@ export const Canvas: React.FC<CanvasProps> = ({
                   height={Math.max(displayHeight - (shape.type === 'sticky' ? 28 : 16), 20)}
                   className={editingShapeId === shape.id ? 'pointer-events-auto z-40' : 'pointer-events-none'}
                 >
-                  <div className="w-full h-full flex items-center justify-center text-center overflow-hidden">
+                  <div
+                    className={`w-full h-full flex overflow-hidden ${
+                      shape.type === 'text'
+                        ? 'items-start justify-start text-left p-1'
+                        : 'items-center justify-center text-center'
+                    }`}
+                  >
                     {editingShapeId === shape.id ? (
                       <textarea
                         autoFocus
@@ -730,16 +736,29 @@ export const Canvas: React.FC<CanvasProps> = ({
                         onBlur={commitShapeText}
                         onKeyDown={e => {
                           if (e.key === 'Escape') commitShapeText();
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            commitShapeText();
+                          if (shape.type === 'text' || shape.type === 'sticky') {
+                            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                              e.preventDefault();
+                              commitShapeText();
+                            }
+                          } else {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              commitShapeText();
+                            }
                           }
                         }}
                         placeholder="Type here..."
-                        className="w-full h-full bg-transparent outline-none resize-none text-center font-handwritten text-slate-900 text-lg md:text-xl p-0 overflow-auto border-none focus:ring-0 leading-snug"
+                        className={`w-full h-full bg-transparent outline-none resize-none font-handwritten text-slate-900 text-lg md:text-xl p-0 overflow-auto border-none focus:ring-0 leading-relaxed ${
+                          shape.type === 'text' ? 'text-left' : 'text-center'
+                        }`}
                       />
                     ) : (
-                      <span className="font-handwritten text-slate-900 text-lg md:text-xl leading-snug whitespace-pre-wrap break-words select-none">
+                      <span
+                        className={`font-handwritten text-slate-900 text-lg md:text-xl leading-relaxed whitespace-pre-wrap break-words select-none ${
+                          shape.type === 'text' ? 'text-left w-full' : 'text-center'
+                        }`}
+                      >
                         {shape.bindCellRef && (!shape.bindProperty || shape.bindProperty === 'label')
                           ? `${shape.text ? `${shape.text} ` : ''}[${boundValue ?? '...'}]`
                           : shape.text || (isSelected ? (
