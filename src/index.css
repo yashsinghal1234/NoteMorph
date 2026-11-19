@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
+
+/* Dynamic CSS SVG Grid Pattern for Infinite Canvas */
+.infinite-grid-pattern {
+  background-image: 
+    radial-gradient(circle, #cbd5e1 1.2px, transparent 1.2px);
+  background-size: var(--grid-size, 32px) var(--grid-size, 32px);
+  background-position: var(--grid-offset-x, 0px) var(--grid-offset-y, 0px);
+}
+
+/* Spreadsheet subtle cell borders */
+.cell-border {
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
