@@ -1,6 +1,6 @@
 import { HyperFormula } from 'hyperformula';
 
-class FormulaEngine {
+export class FormulaEngine {
   private hf: HyperFormula;
   private sheetId: number;
 
@@ -69,6 +69,13 @@ class FormulaEngine {
     } catch (e) {
       console.error('Error loading sheet data:', e);
     }
+  }
+
+  /** Resolve cell value by reference like 'A1' */
+  public getCellValueByRef(ref: string): string | null {
+    const coords = FormulaEngine.cellRefToCoords(ref);
+    if (!coords) return null;
+    return this.getComputedValue(coords.row, coords.col);
   }
 }
 

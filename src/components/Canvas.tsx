@@ -1,8 +1,10 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import getStroke from 'perfect-freehand';
-import { ShapeRecord, ToolMode, ViewportTransform } from '../types';
+import { ShapeRecord, ToolMode, ViewportTransform, CellRecord } from '../types';
 import { setShape, deleteShape } from '../lib/crdt';
 import { recognizeStroke } from '../lib/shapeRecognizer';
+import { formulaEngine, FormulaEngine } from '../lib/hyperformula';
+import { Link2, Trash2, Unlink } from 'lucide-react';
 
 interface CanvasProps {
   tool: ToolMode;
@@ -11,6 +13,8 @@ interface CanvasProps {
   strokeWidth: number;
   shapes: Map<string, ShapeRecord>;
   shapeOrder: string[];
+  cells: Map<string, CellRecord>;
+  autoSnap: boolean;
   viewport: ViewportTransform;
   setViewport: React.Dispatch<React.SetStateAction<ViewportTransform>>;
 }
@@ -22,6 +26,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   strokeWidth,
   shapes,
   shapeOrder,
+  cells,
+  autoSnap,
   viewport,
   setViewport,
 }) => {
@@ -199,8 +205,8 @@ export const Canvas: React.FC<CanvasProps> = ({
     const id = `shape_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     if (tool === 'draw') {
-      // Execute intelligent stroke recognition!
-      const recognized = recognizeStroke(currentStroke);
+      // Execute intelligent stroke recognition if autoSnap is enabled!
+      const recognized = autoSnap ? recognizeStroke(currentStroke) : null;
       if (recognized) {
         // Auto-snapped to geometric primitive
         setShape({
@@ -383,6 +389,22 @@ export const Canvas: React.FC<CanvasProps> = ({
           if (!shape) return null;
           const isSelected = selectedShapeId === shape.id;
 
+          // Resolve live reactive data binding if shape is bound to a cell
+          const boundValue = shape.bindCellRef
+            ? formulaEngine.getCellValueByRef(shape.bindCellRef)
+            : null;
+          const num = Number(boundValue);
+          const displayHeight =
+            shape.bindProperty === 'height' && !isNaN(num) && num > 0
+              ? Math.min(Math.max(num, 15), 800)
+              : shape.height;
+          const displayStrokeColor =
+            shape.bindProperty === 'color' && !isNaN(num)
+              ? num < 0
+                ? '#ef4444'
+                : '#10b981'
+              : shape.strokeColor;
+
           return (
             <g key={shape.id} className="pointer-events-auto">
               {shape.type === 'rect' && (
@@ -390,9 +412,9 @@ export const Canvas: React.FC<CanvasProps> = ({
                   x={shape.x}
                   y={shape.y}
                   width={shape.width}
-                  height={shape.height}
+                  height={displayHeight}
                   rx="6"
-                  stroke={shape.strokeColor}
+                  stroke={displayStrokeColor}
                   strokeWidth={shape.strokeWidth}
                   fill={shape.fillColor || 'transparent'}
                 />
@@ -401,10 +423,10 @@ export const Canvas: React.FC<CanvasProps> = ({
               {shape.type === 'circle' && (
                 <ellipse
                   cx={shape.x + shape.width / 2}
-                  cy={shape.y + shape.height / 2}
+                  cy={shape.y + displayHeight / 2}
                   rx={shape.width / 2}
-                  ry={shape.height / 2}
-                  stroke={shape.strokeColor}
+                  ry={displayHeight / 2}
+                  stroke={displayStrokeColor}
                   strokeWidth={shape.strokeWidth}
                   fill={shape.fillColor || 'transparent'}
                 />
@@ -412,8 +434,8 @@ export const Canvas: React.FC<CanvasProps> = ({
 
               {shape.type === 'triangle' && (
                 <polygon
-                  points={`${shape.x + shape.width / 2},${shape.y} ${shape.x + shape.width},${shape.y + shape.height} ${shape.x},${shape.y + shape.height}`}
-                  stroke={shape.strokeColor}
+                  points={`${shape.x + shape.width / 2},${shape.y} ${shape.x + shape.width},${shape.y + displayHeight} ${shape.x},${shape.y + displayHeight}`}
+                  stroke={displayStrokeColor}
                   strokeWidth={shape.strokeWidth}
                   fill={shape.fillColor || 'transparent'}
                 />
@@ -425,7 +447,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                   y1={shape.points[0][1]}
                   x2={shape.points[1][0]}
                   y2={shape.points[1][1]}
-                  stroke={shape.strokeColor}
+                  stroke={displayStrokeColor}
                   strokeWidth={shape.strokeWidth}
                   strokeLinecap="round"
                 />
@@ -437,7 +459,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                   y1={shape.points[0][1]}
                   x2={shape.points[1][0]}
                   y2={shape.points[1][1]}
-                  stroke={shape.strokeColor}
+                  stroke={displayStrokeColor}
                   strokeWidth={shape.strokeWidth}
                   strokeLinecap="round"
                   markerEnd="url(#arrowhead)"
@@ -447,7 +469,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               {shape.type === 'freehand' && shape.points && (
                 <path
                   d={getSvgPathFromStroke(shape.points, shape.strokeWidth)}
-                  fill={shape.strokeColor}
+                  fill={displayStrokeColor}
                 />
               )}
 
@@ -456,7 +478,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                   x={shape.x}
                   y={shape.y}
                   width={shape.width}
-                  height={shape.height}
+                  height={displayHeight}
                 >
                   <div
                     contentEditable
@@ -466,9 +488,37 @@ export const Canvas: React.FC<CanvasProps> = ({
                     }}
                     className="w-full h-full p-2 bg-yellow-50 border border-yellow-300 rounded-lg shadow-sm text-xs text-slate-800 outline-none font-sans overflow-auto"
                   >
-                    {shape.text}
+                    {shape.bindCellRef && (!shape.bindProperty || shape.bindProperty === 'label')
+                      ? `${shape.text || ''} ${boundValue ? `[${boundValue}]` : ''}`
+                      : shape.text}
                   </div>
                 </foreignObject>
+              )}
+
+              {/* Data Binding Pill Badge */}
+              {shape.bindCellRef && (
+                <g transform={`translate(${shape.x + 4}, ${shape.y - 14})`}>
+                  <rect
+                    x="0"
+                    y="0"
+                    width={Math.max((shape.bindCellRef.length + (boundValue?.length || 0)) * 7 + 24, 60)}
+                    height="16"
+                    rx="4"
+                    fill="#eff6ff"
+                    stroke="#3b82f6"
+                    strokeWidth="1"
+                  />
+                  <text
+                    x="5"
+                    y="11"
+                    fontSize="9"
+                    fontFamily="monospace"
+                    fontWeight="bold"
+                    fill="#1d4ed8"
+                  >
+                    ⚯ {shape.bindCellRef}: {boundValue ?? '...'}
+                  </text>
+                </g>
               )}
 
               {/* Selection Halo */}
@@ -477,7 +527,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                   x={shape.x - 4}
                   y={shape.y - 4}
                   width={shape.width + 8}
-                  height={shape.height + 8}
+                  height={displayHeight + 8}
                   fill="none"
                   stroke="#3b82f6"
                   strokeWidth="1.5"
@@ -498,6 +548,78 @@ export const Canvas: React.FC<CanvasProps> = ({
           />
         )}
       </svg>
+
+      {/* Floating Data-Binding Shape Inspector */}
+      {selectedShapeId && shapes.has(selectedShapeId) && (
+        (() => {
+          const selShape = shapes.get(selectedShapeId)!;
+          return (
+            <div
+              className="absolute z-30 flex items-center gap-2 p-2 bg-white/95 backdrop-blur-md rounded-xl shadow-xl border border-slate-200 text-xs animate-in fade-in"
+              style={{
+                left: Math.max(16, selShape.x * viewport.zoom + viewport.x),
+                top: Math.max(16, (selShape.y + selShape.height + 12) * viewport.zoom + viewport.y),
+              }}
+              onPointerDown={e => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+                <Link2 className="w-3.5 h-3.5 text-blue-600" />
+                <span>Bind Cell:</span>
+                <input
+                  type="text"
+                  placeholder="e.g. A1"
+                  value={selShape.bindCellRef || ''}
+                  onChange={e => {
+                    setShape({ ...selShape, bindCellRef: e.target.value.toUpperCase().trim() });
+                  }}
+                  className="w-16 px-1.5 py-0.5 border border-slate-300 rounded font-mono text-[11px] uppercase outline-none focus:border-blue-500"
+                />
+              </div>
+
+              {selShape.bindCellRef && (
+                <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-[10px]">
+                  {(['label', 'height', 'color'] as const).map(prop => (
+                    <button
+                      key={prop}
+                      onClick={() => setShape({ ...selShape, bindProperty: prop })}
+                      className={`px-1.5 py-0.5 rounded capitalize ${
+                        (selShape.bindProperty || 'label') === prop
+                          ? 'bg-blue-600 text-white font-bold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {prop}
+                    </button>
+                  ))}
+                  <button
+                    title="Unbind Cell"
+                    onClick={() => {
+                      const { bindCellRef, bindProperty, ...rest } = selShape;
+                      setShape({ ...rest, updatedAt: Date.now() });
+                    }}
+                    className="p-1 hover:text-red-600 text-slate-400"
+                  >
+                    <Unlink className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+
+              <div className="w-[1px] h-4 bg-slate-200" />
+
+              <button
+                title="Delete Shape"
+                onClick={() => {
+                  deleteShape(selShape.id);
+                  setSelectedShapeId(null);
+                }}
+                className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          );
+        })()
+      )}
     </div>
   );
 };

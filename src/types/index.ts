@@ -43,6 +43,8 @@ export interface ShapeRecord {
   text?: string;
   ocrConfidence?: number;
   anchoredCellId?: string;
+  bindCellRef?: string;    // e.g. "A1" or "B2"
+  bindProperty?: 'label' | 'height' | 'color';
   updatedAt: number;
 }
 

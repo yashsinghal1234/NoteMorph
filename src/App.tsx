@@ -20,6 +20,7 @@ export function App() {
   const [color, setColor] = useState<string>('#0f172a');
   const [strokeWidth, setStrokeWidth] = useState<number>(2);
   const [showGrid, setShowGrid] = useState<boolean>(true);
+  const [autoSnap, setAutoSnap] = useState<boolean>(true);
   const [isOCRModalOpen, setIsOCRModalOpen] = useState<boolean>(false);
   const [isSynced, setIsSynced] = useState<boolean>(false);
   const [canUndo, setCanUndo] = useState<boolean>(false);
@@ -221,6 +222,8 @@ export function App() {
         }
         showGrid={showGrid}
         setShowGrid={setShowGrid}
+        autoSnap={autoSnap}
+        setAutoSnap={setAutoSnap}
       />
 
       {/* Infinite Canvas with SVG & Perfect-Freehand Engine */}
@@ -231,6 +234,8 @@ export function App() {
         strokeWidth={strokeWidth}
         shapes={shapes}
         shapeOrder={shapeOrder}
+        cells={cells}
+        autoSnap={autoSnap}
         viewport={viewport}
         setViewport={setViewport}
       />

@@ -1,17 +1,34 @@
 # notemorp 🪐
 
-> **The local-first, hybrid spreadsheet + infinite whiteboard canvas.**  
-> Bridging the gap between computational data modeling (Excel/Sheets) and spatial visual thinking (Miro/Excalidraw).
+> **“Diagrams that compute, with data that never leaves your device.”**  
+> The local-first hybrid that unites the spatial freedom of whiteboards with the reactive mathematical power of spreadsheets.
 
 ---
 
-## 💡 The Problem
+## 🎯 The Problem
 
-Historically, knowledge workers have been trapped between two incompatible mental models:
-* **The Rigid Spreadsheet (Excel, Google Sheets):** Unbeatable for structured formulas, dependency graphs, and data modeling, but confined to a rigid 2D grid. You cannot sketch diagrams, draw arrows across ideas, or visually map workflows around your numbers.
-* **The Free-form Whiteboard (Miro, Excalidraw, FigJam):** Fantastic for spatial brainstorming and architecture sketches, but fundamentally "dumb." Drawn tables have no calculation engine—numbers don't sum, formulas don't compute, and data is completely disconnected.
+People doing real thinking switch constantly between two tools that don’t talk to each other:
+* **The Spreadsheet (Excel, Google Sheets):** Powerful calculation, but rigid, linear, and visually dead.
+* **The Whiteboard (Miro, Excalidraw, FigJam):** Spatial and intuitive, but completely "dumb." Shapes cannot calculate, and tables don't compute.
 
-**notemorp breaks this barrier.** It combines an infinite spatial canvas with a live, calculating spreadsheet engine, backed by on-device OCR and instant stroke-to-shape recognition.
+### What Sets notemorp Apart
+1. **Local-First & 100% Private:** OCR and calculations run entirely on-device via Web Workers & WASM. No document or proprietary financial data ever leaves the browser.
+2. **Zero-Friction Ingestion:** Draw rough doodles and watch them auto-snap to clean vector geometry in $<1\text{ms}$, or drop in a PDF/invoice to extract structured, calculating tables.
+3. **Data-Bound Spatial Canvas:** Shapes and connectors anchor directly to spreadsheet cells. When your numbers change, the diagrams react.
+4. **Offline-First Persistence:** True local-first data storage in IndexedDB through Yjs CRDTs.
+
+---
+
+## 👥 Real-World Problems Solved
+
+| Problem | Who Has It | How notemorp Solves It |
+|---|---|---|
+| **Invisible Financial / System Modeling**<br>*(Nobody can see how numbers flow)* | Founders, Analysts, Students | Draw the model as visual boxes and arrows, binding each box to a cell so the diagram and the math are the exact same reactive object. |
+| **Dead Scanned Data in PDFs**<br>*(Manual re-typing of tables)* | Small Businesses, Accountants, Researchers | In-browser OCR pipeline turns static receipts and PDF tables into live, calculating spreadsheet cells. |
+| **Lost Meeting Whiteboard Photos** | Engineering Teams, Classrooms | Ingest photos of whiteboard sketches and convert them into editable vector shapes and text cards. |
+| **Sensitive Data Cloud Ban** | Healthcare, Legal, Finance | 100% on-device local computation—no cloud transmission, satisfying strict compliance. |
+| **Scattered Estimations & Planning**<br>*(Budgets in Excel, flows in Miro, notes in Notion)* | Project Planners, Freelancers, Event Organizers | One unified canvas for the budget, the flowchart, and the narrative. |
+| **Teaching Math & Data Visually** | Educators, STEM Students | Sketch a visual graph or diagram and watch it compute live values. |
 
 ---
 

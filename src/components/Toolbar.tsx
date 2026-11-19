@@ -18,6 +18,7 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import { ToolMode } from '../types';
 
@@ -42,6 +43,8 @@ interface ToolbarProps {
   onResetZoom: () => void;
   showGrid: boolean;
   setShowGrid: (show: boolean | ((prev: boolean) => boolean)) => void;
+  autoSnap: boolean;
+  setAutoSnap: (snap: boolean | ((prev: boolean) => boolean)) => void;
 }
 
 const COLORS = [
@@ -74,6 +77,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onResetZoom,
   showGrid,
   setShowGrid,
+  autoSnap,
+  setAutoSnap,
 }) => {
   return (
     <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 p-1.5 bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-slate-200/80 text-slate-700">
@@ -200,6 +205,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       >
         <Table className="w-3.5 h-3.5" />
         <span>Spreadsheet</span>
+      </button>
+
+      {/* Auto-Snap Toggle */}
+      <button
+        title="Toggle Geometric Shape Auto-Snapping"
+        onClick={() => setAutoSnap(prev => !prev)}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+          autoSnap
+            ? 'bg-purple-50 text-purple-700 border border-purple-200'
+            : 'bg-slate-100 hover:bg-slate-200 text-slate-400'
+        }`}
+      >
+        <Sparkles className="w-3.5 h-3.5" />
+        <span>Snap: {autoSnap ? 'ON' : 'OFF'}</span>
       </button>
 
       <div className="w-[1px] h-6 bg-slate-200 mx-1" />

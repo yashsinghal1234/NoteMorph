@@ -54,7 +54,6 @@ export function recognizeStroke(rawPoints: [number, number][]): RecognizedShape 
       for (let j = 1; j < tailSegment.length; j++) {
         const [cx, cy] = tailSegment[j];
         const [lx, ly] = tailSegment[j - 1];
-        // Calculate angle between overall line vector and tail stroke
         const lineAngle = Math.atan2(endY - startY, endX - startX);
         const segmentAngle = Math.atan2(cy - ly, cx - lx);
         const angleDiff = Math.abs(lineAngle - segmentAngle);
@@ -79,7 +78,10 @@ export function recognizeStroke(rawPoints: [number, number][]): RecognizedShape 
   }
 
   // 3. Closed Shape Check (Circle, Rectangle, Triangle)
-  const isClosed = startEndDist / pathLength < 0.28;
+  // Distance from start to end must be close relative to both pathLength and max dimension
+  const maxDim = Math.max(width, height);
+  const isClosed = startEndDist / pathLength < 0.20 && startEndDist < maxDim * 0.35;
+
   if (isClosed) {
     // Shoelace formula for polygon area
     let area = 0;
@@ -88,24 +90,14 @@ export function recognizeStroke(rawPoints: [number, number][]): RecognizedShape 
     }
     area = Math.abs(area) / 2;
 
-    // Isoperimetric quotient (Circularity) = 4 * PI * Area / Perimeter^2
-    const circularity = (4 * Math.PI * area) / (pathLength * pathLength);
-
-    // If circularity is high, snap to circle/ellipse
-    if (circularity > 0.72) {
-      return {
-        type: 'circle',
-        x: minX,
-        y: minY,
-        width,
-        height,
-      };
-    }
-
     // Douglas-Peucker path simplification to count corners
-    const tolerance = Math.max(width, height) * 0.08;
+    const tolerance = maxDim * 0.08;
     const simplified = douglasPeucker(rawPoints, tolerance);
     const cornerCount = simplified.length - 1; // Last point meets start point
+
+    // Isoperimetric quotient (Circularity) = 4 * PI * Area / Perimeter^2
+    // Perfect circle = 1.0; Square = pi/4 ≈ 0.785; Equilateral Triangle ≈ 0.604
+    const circularity = (4 * Math.PI * area) / (pathLength * pathLength);
 
     if (cornerCount === 3) {
       return {
@@ -127,8 +119,19 @@ export function recognizeStroke(rawPoints: [number, number][]): RecognizedShape 
       };
     }
 
-    // Default to rectangle if bounding box aspect ratio fits clean box
-    if (circularity < 0.72 && area > width * height * 0.6) {
+    // High circularity with no sharp corners -> Circle
+    if (circularity > 0.82) {
+      return {
+        type: 'circle',
+        x: minX,
+        y: minY,
+        width,
+        height,
+      };
+    }
+
+    // Bounding box fill heuristic for rectangles
+    if (area > width * height * 0.70) {
       return {
         type: 'rect',
         x: minX,
