@@ -51,10 +51,27 @@ export const Canvas: React.FC<CanvasProps> = ({
     if (!editingShapeId) return;
     const shape = shapes.get(editingShapeId);
     if (shape) {
-      setShape({ ...shape, text: editingText, updatedAt: Date.now() });
+      if (shape.type === 'text' && !editingText.trim() && !shape.bindCellRef) {
+        // Automatically discard empty ghost text shapes like Excalidraw
+        deleteShape(shape.id);
+        if (selectedShapeId === shape.id) {
+          setSelectedShapeId(null);
+        }
+      } else {
+        setShape({ ...shape, text: editingText, updatedAt: Date.now() });
+      }
     }
     setEditingShapeId(null);
   };
+
+  // Clean up legacy ghost empty text shapes that have no text and no bound cell
+  useEffect(() => {
+    shapes.forEach(shape => {
+      if (shape.type === 'text' && !shape.text?.trim() && !shape.bindCellRef) {
+        deleteShape(shape.id);
+      }
+    });
+  }, [shapes]);
 
   // Track spacebar for pan shortcut
   useEffect(() => {
@@ -140,6 +157,8 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   // Pointer Down
   const handlePointerDown = (e: React.PointerEvent) => {
+    commitShapeText();
+
     // If clicking on background or middle button
     if (e.button === 1 || tool === 'pan' || isSpacePressed) {
       setDragStart({ x: e.clientX, y: e.clientY });
@@ -187,6 +206,9 @@ export const Canvas: React.FC<CanvasProps> = ({
       setIsPointerDown(true);
       return;
     }
+
+    // Clear active selection box when using any drawing / creation tool on canvas
+    setSelectedShapeId(null);
 
     // Start drawing stroke or shape
     setIsPointerDown(true);
@@ -257,6 +279,14 @@ export const Canvas: React.FC<CanvasProps> = ({
     const height = Math.max(maxY - minY, 15);
     const [startX, startY] = currentStroke[0];
     const [endX, endY] = currentStroke[currentStroke.length - 1];
+    const dragDistance = Math.hypot(endX - startX, endY - startY);
+
+    // Discard tiny accidental clicks for shape drawing tools to prevent ghost shapes
+    if (dragDistance < 6 && tool !== 'text' && tool !== 'sticky') {
+      setCurrentStroke([]);
+      return;
+    }
+
     const id = `shape_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     if (tool === 'draw') {
@@ -666,6 +696,22 @@ export const Canvas: React.FC<CanvasProps> = ({
                 />
               )}
 
+              {/* Text Card outline when selected */}
+              {shape.type === 'text' && (
+                <rect
+                  x={shape.x}
+                  y={shape.y}
+                  width={shape.width}
+                  height={displayHeight}
+                  rx="6"
+                  fill="transparent"
+                  stroke={isSelected ? '#60a5fa' : 'transparent'}
+                  strokeWidth="1"
+                  strokeDasharray={isSelected ? '3 3' : undefined}
+                  pointerEvents="all"
+                />
+              )}
+
               {/* Direct Text Embedded in ANY Closed Shape (No separate text boxes!) */}
               {shape.type !== 'line' && shape.type !== 'arrow' && shape.type !== 'freehand' && (
                 <foreignObject
@@ -696,7 +742,11 @@ export const Canvas: React.FC<CanvasProps> = ({
                       <span className="font-handwritten text-slate-900 text-lg md:text-xl leading-snug whitespace-pre-wrap break-words select-none">
                         {shape.bindCellRef && (!shape.bindProperty || shape.bindProperty === 'label')
                           ? `${shape.text ? `${shape.text} ` : ''}[${boundValue ?? '...'}]`
-                          : shape.text}
+                          : shape.text || (isSelected ? (
+                              <span className="text-slate-400 font-sans text-xs italic select-none">
+                                Double-click to type
+                              </span>
+                            ) : null)}
                       </span>
                     )}
                   </div>
