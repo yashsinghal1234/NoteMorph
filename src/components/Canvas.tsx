@@ -105,6 +105,17 @@ export const Canvas: React.FC<CanvasProps> = ({
     return () => el.removeEventListener('wheel', handleWheel);
   }, [setViewport]);
 
+  // Direct shape pointer down - allows selecting individual shapes effortlessly
+  const handleShapePointerDown = (e: React.PointerEvent, shape: ShapeRecord) => {
+    if (tool === 'pan' || isSpacePressed || e.button === 1) return;
+    e.stopPropagation();
+    setSelectedShapeId(shape.id);
+    setTool('select');
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setShapeStartWorld({ x: shape.x, y: shape.y });
+    setIsPointerDown(true);
+  };
+
   // Pointer Down
   const handlePointerDown = (e: React.PointerEvent) => {
     // If clicking on background or middle button
@@ -117,17 +128,28 @@ export const Canvas: React.FC<CanvasProps> = ({
     const [worldX, worldY] = screenToWorld(e.clientX, e.clientY);
 
     if (tool === 'select') {
-      // Find clicked shape (reverse order for top-most)
+      // Find clicked shape with generous hit testing padding (reverse order for top-most)
       let clickedId: string | null = null;
+      const hitMargin = 16;
+
       for (let i = shapeOrder.length - 1; i >= 0; i--) {
         const shape = shapes.get(shapeOrder[i]);
         if (!shape) continue;
 
+        const boundValue = shape.bindCellRef
+          ? formulaEngine.getCellValueByRef(shape.bindCellRef)
+          : null;
+        const num = Number(boundValue);
+        const curHeight =
+          shape.bindProperty === 'height' && !isNaN(num) && num > 0
+            ? Math.min(Math.max(num, 15), 800)
+            : shape.height;
+
         if (
-          worldX >= shape.x &&
-          worldX <= shape.x + shape.width &&
-          worldY >= shape.y &&
-          worldY <= shape.y + shape.height
+          worldX >= shape.x - hitMargin &&
+          worldX <= shape.x + shape.width + hitMargin &&
+          worldY >= shape.y - hitMargin &&
+          worldY <= shape.y + curHeight + hitMargin
         ) {
           clickedId = shape.id;
           break;
@@ -196,12 +218,23 @@ export const Canvas: React.FC<CanvasProps> = ({
       return;
     }
 
+    // Compute true bounding box across all points in stroke
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    for (const [px, py] of currentStroke) {
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (py < minY) minY = py;
+      if (py > maxY) maxY = py;
+    }
+
+    const width = Math.max(maxX - minX, 15);
+    const height = Math.max(maxY - minY, 15);
     const [startX, startY] = currentStroke[0];
     const [endX, endY] = currentStroke[currentStroke.length - 1];
-    const width = Math.abs(endX - startX);
-    const height = Math.abs(endY - startY);
-    const minX = Math.min(startX, endX);
-    const minY = Math.min(startY, endY);
     const id = `shape_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     if (tool === 'draw') {
@@ -406,7 +439,12 @@ export const Canvas: React.FC<CanvasProps> = ({
               : shape.strokeColor;
 
           return (
-            <g key={shape.id} className="pointer-events-auto">
+            <g
+              key={shape.id}
+              className="pointer-events-auto cursor-pointer"
+              onPointerDown={e => handleShapePointerDown(e, shape)}
+              style={{ pointerEvents: 'all' }}
+            >
               {shape.type === 'rect' && (
                 <rect
                   x={shape.x}
@@ -417,6 +455,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                   stroke={displayStrokeColor}
                   strokeWidth={shape.strokeWidth}
                   fill={shape.fillColor || 'transparent'}
+                  pointerEvents="all"
                 />
               )}
 
@@ -429,6 +468,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                   stroke={displayStrokeColor}
                   strokeWidth={shape.strokeWidth}
                   fill={shape.fillColor || 'transparent'}
+                  pointerEvents="all"
                 />
               )}
 
@@ -438,39 +478,70 @@ export const Canvas: React.FC<CanvasProps> = ({
                   stroke={displayStrokeColor}
                   strokeWidth={shape.strokeWidth}
                   fill={shape.fillColor || 'transparent'}
+                  pointerEvents="all"
                 />
               )}
 
               {shape.type === 'line' && shape.points && (
-                <line
-                  x1={shape.points[0][0]}
-                  y1={shape.points[0][1]}
-                  x2={shape.points[1][0]}
-                  y2={shape.points[1][1]}
-                  stroke={displayStrokeColor}
-                  strokeWidth={shape.strokeWidth}
-                  strokeLinecap="round"
-                />
+                <>
+                  {/* Invisible wide hit-target for effortless clicking */}
+                  <line
+                    x1={shape.points[0][0]}
+                    y1={shape.points[0][1]}
+                    x2={shape.points[1][0]}
+                    y2={shape.points[1][1]}
+                    stroke="transparent"
+                    strokeWidth={Math.max(shape.strokeWidth + 18, 24)}
+                    pointerEvents="stroke"
+                  />
+                  <line
+                    x1={shape.points[0][0]}
+                    y1={shape.points[0][1]}
+                    x2={shape.points[1][0]}
+                    y2={shape.points[1][1]}
+                    stroke={displayStrokeColor}
+                    strokeWidth={shape.strokeWidth}
+                    strokeLinecap="round"
+                    pointerEvents="stroke"
+                  />
+                </>
               )}
 
               {shape.type === 'arrow' && shape.points && (
-                <line
-                  x1={shape.points[0][0]}
-                  y1={shape.points[0][1]}
-                  x2={shape.points[1][0]}
-                  y2={shape.points[1][1]}
-                  stroke={displayStrokeColor}
-                  strokeWidth={shape.strokeWidth}
-                  strokeLinecap="round"
-                  markerEnd="url(#arrowhead)"
-                />
+                <>
+                  {/* Invisible wide hit-target */}
+                  <line
+                    x1={shape.points[0][0]}
+                    y1={shape.points[0][1]}
+                    x2={shape.points[1][0]}
+                    y2={shape.points[1][1]}
+                    stroke="transparent"
+                    strokeWidth={Math.max(shape.strokeWidth + 18, 24)}
+                    pointerEvents="stroke"
+                  />
+                  <line
+                    x1={shape.points[0][0]}
+                    y1={shape.points[0][1]}
+                    x2={shape.points[1][0]}
+                    y2={shape.points[1][1]}
+                    stroke={displayStrokeColor}
+                    strokeWidth={shape.strokeWidth}
+                    strokeLinecap="round"
+                    markerEnd="url(#arrowhead)"
+                    pointerEvents="stroke"
+                  />
+                </>
               )}
 
               {shape.type === 'freehand' && shape.points && (
-                <path
-                  d={getSvgPathFromStroke(shape.points, shape.strokeWidth)}
-                  fill={displayStrokeColor}
-                />
+                <>
+                  {/* Wide hit target */}
+                  <path
+                    d={getSvgPathFromStroke(shape.points, shape.strokeWidth)}
+                    fill={displayStrokeColor}
+                    pointerEvents="all"
+                  />
+                </>
               )}
 
               {shape.type === 'text' && (
@@ -479,14 +550,20 @@ export const Canvas: React.FC<CanvasProps> = ({
                   y={shape.y}
                   width={shape.width}
                   height={displayHeight}
+                  pointerEvents="all"
                 >
                   <div
                     contentEditable
                     suppressContentEditableWarning
+                    onPointerDown={e => e.stopPropagation()}
+                    onClick={e => {
+                      setSelectedShapeId(shape.id);
+                      setTool('select');
+                    }}
                     onBlur={e => {
                       setShape({ ...shape, text: e.currentTarget.textContent || '' });
                     }}
-                    className="w-full h-full p-2 bg-yellow-50 border border-yellow-300 rounded-lg shadow-sm text-xs text-slate-800 outline-none font-sans overflow-auto"
+                    className="w-full h-full p-2 bg-yellow-50 border border-yellow-300 rounded-lg shadow-sm text-xs text-slate-800 outline-none font-sans overflow-auto cursor-text"
                   >
                     {shape.bindCellRef && (!shape.bindProperty || shape.bindProperty === 'label')
                       ? `${shape.text || ''} ${boundValue ? `[${boundValue}]` : ''}`
