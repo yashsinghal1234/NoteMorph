@@ -1,42 +1,20 @@
 import { createWorker } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
+import {
+  ExtractedOCRWord,
+  ExtractedParagraph,
+  ExtractedTableCell,
+  OCRResult,
+  VisionAIConfig,
+} from '../types';
+import { runOllamaOCR, runTrOCROCR, runGeminiVisionOCR } from './visionAi';
+
+// Re-export types for backward compatibility
+export type { ExtractedOCRWord, ExtractedParagraph, ExtractedTableCell, OCRResult };
 
 // Local-first PDF worker: served locally from /pdf.worker.min.js (100% offline & privacy-first)
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('/pdf.worker.min.js', window.location.origin).href;
-}
-
-export interface ExtractedOCRWord {
-  text: string;
-  confidence: number;
-  bbox: { x0: number; y0: number; x1: number; y1: number };
-}
-
-export interface ExtractedParagraph {
-  id: string;
-  text: string;
-  confidence: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface ExtractedTableCell {
-  row: number;
-  col: number;
-  text: string;
-}
-
-export interface OCRResult {
-  rawText: string;
-  cleanedText: string;
-  paragraphs: ExtractedParagraph[];
-  words: ExtractedOCRWord[];
-  tableCells: ExtractedTableCell[];
-  canvasDataUrl: string;
-  width: number;
-  height: number;
 }
 
 /**
@@ -94,13 +72,12 @@ export function cleanOCRText(text: string): string {
 }
 
 /**
- * Process a PDF or image file, run high-resolution Tesseract OCR,
- * and cluster bounding boxes into table cells or clean paragraphs.
+ * Render uploaded PDF or image file into an optimized HTMLCanvasElement.
  */
-export async function processDocumentOCR(
+export async function renderFileToCanvas(
   file: File,
   onProgress?: (progress: number, status: string) => void
-): Promise<OCRResult> {
+): Promise<HTMLCanvasElement> {
   const isPDF = file.type === 'application/pdf' || file.name.endsWith('.pdf');
   let canvas: HTMLCanvasElement;
 
@@ -132,7 +109,6 @@ export async function processDocumentOCR(
       img.src = imgUrl;
     });
 
-    // Upscale lower-resolution photos to ~2400px equivalent for high-DPI character edges
     const maxDim = Math.max(img.width, img.height);
     const scale = maxDim < 1800 ? Math.min(2.0, 2400 / maxDim) : 1.0;
 
@@ -146,13 +122,43 @@ export async function processDocumentOCR(
     URL.revokeObjectURL(imgUrl);
   }
 
+  return canvas;
+}
+
+/**
+ * Universal document processor supporting:
+ * - Ollama (Qwen2.5-VL / Llama3.2-Vision)
+ * - Microsoft TrOCR in-browser (Transformers.js)
+ * - Gemini Vision API (Cloud)
+ * - Tesseract (Local high-resolution fallback)
+ */
+export async function processDocumentOCR(
+  file: File,
+  onProgress?: (progress: number, status: string) => void,
+  config?: VisionAIConfig
+): Promise<OCRResult> {
+  const canvas = await renderFileToCanvas(file, onProgress);
+  const engine = config?.engine || 'tesseract';
+
+  if (engine === 'ollama') {
+    return runOllamaOCR(canvas, config!, onProgress);
+  }
+
+  if (engine === 'trocr') {
+    return runTrOCROCR(canvas, onProgress);
+  }
+
+  if (engine === 'gemini') {
+    return runGeminiVisionOCR(canvas, config?.geminiApiKey || '', onProgress);
+  }
+
+  // Tesseract High-Resolution Pipeline
   onProgress?.(0.3, 'Pre-processing dynamic range...');
   preprocessCanvas(canvas);
 
   onProgress?.(0.45, 'Initializing local OCR engine...');
   const worker = await createWorker('eng');
 
-  // Tune LSTM parameters: preserve spaces between words to avoid word concatenation
   await worker.setParameters({
     preserve_interword_spaces: '1',
     user_defined_dpi: '300',
@@ -165,10 +171,7 @@ export async function processDocumentOCR(
   onProgress?.(0.85, 'Segmenting structured paragraphs...');
   const cleanedFullText = cleanOCRText(ret.data.text);
 
-  // Segment paragraphs cleanly
   let paragraphs: ExtractedParagraph[] = [];
-
-  // Split full text into logical blocks by double-newlines or sections
   const blocks = cleanedFullText
     .split(/\n\s*\n/)
     .map(b => b.trim())
@@ -235,7 +238,6 @@ function preprocessCanvas(canvas: HTMLCanvasElement) {
       if (g > maxG) maxG = g;
     }
 
-    // Gentle linear contrast stretch only if dynamic range is narrow
     if (maxG - minG < 180) {
       const range = Math.max(maxG - minG, 30);
       for (let i = 0; i < data.length; i += 4) {
@@ -265,7 +267,6 @@ function clusterWordsIntoTable(words: ExtractedOCRWord[]): ExtractedTableCell[] 
   const medianHeight = heights[Math.floor(heights.length / 2)] || 16;
   const lineTolerance = medianHeight * 0.6;
 
-  // 1. Group into horizontal rows
   const sortedWords = [...words].sort((a, b) => a.bbox.y0 - b.bbox.y0);
   const rows: ExtractedOCRWord[][] = [];
 
@@ -291,7 +292,6 @@ function clusterWordsIntoTable(words: ExtractedOCRWord[]): ExtractedTableCell[] 
     row.sort((a, b) => a.bbox.x0 - b.bbox.x0);
   }
 
-  // 2. Identify distinct column bins
   const xPositions = words.map(w => w.bbox.x0).sort((a, b) => a - b);
   const colThreshold = medianHeight * 3.5;
   const columnLefts: number[] = [];
@@ -303,7 +303,6 @@ function clusterWordsIntoTable(words: ExtractedOCRWord[]): ExtractedTableCell[] 
   }
   columnLefts.sort((a, b) => a - b);
 
-  // 3. Map into (row, col) table cells
   const tableCells: ExtractedTableCell[] = [];
 
   rows.forEach((row, rowIndex) => {

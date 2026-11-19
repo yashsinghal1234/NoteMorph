@@ -50,6 +50,12 @@ export interface ShapeRecord {
   updatedAt: number;
 }
 
+export interface ViewportTransform {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
 export interface ClientPresence {
   user: {
     id: string;
@@ -58,11 +64,46 @@ export interface ClientPresence {
   };
   cursor: { x: number; y: number } | null;
   focusedCellId: string | null;
-  selectedShapeIds: string[];
 }
 
-export interface ViewportTransform {
+export interface ExtractedOCRWord {
+  text: string;
+  confidence: number;
+  bbox: { x0: number; y0: number; x1: number; y1: number };
+}
+
+export interface ExtractedParagraph {
+  id: string;
+  text: string;
+  confidence: number;
   x: number;
   y: number;
-  zoom: number;
+  width: number;
+  height: number;
+}
+
+export interface ExtractedTableCell {
+  row: number;
+  col: number;
+  text: string;
+}
+
+export interface OCRResult {
+  rawText: string;
+  cleanedText: string;
+  paragraphs: ExtractedParagraph[];
+  words: ExtractedOCRWord[];
+  tableCells: ExtractedTableCell[];
+  canvasDataUrl: string;
+  width: number;
+  height: number;
+}
+
+export type OCREngineType = 'ollama' | 'trocr' | 'gemini' | 'tesseract';
+
+export interface VisionAIConfig {
+  engine: OCREngineType;
+  ollamaEndpoint: string;
+  ollamaModel: string;
+  geminiApiKey: string;
 }
