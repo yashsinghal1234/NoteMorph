@@ -99,7 +99,7 @@ export interface OCRResult {
   height: number;
 }
 
-export type OCREngineType = 'ollama' | 'trocr' | 'gemini' | 'tesseract';
+export type OCREngineType = 'ollama' | 'gemini' | 'tesseract';
 
 export interface VisionAIConfig {
   engine: OCREngineType;

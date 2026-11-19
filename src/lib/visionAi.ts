@@ -1,13 +1,8 @@
 import { ExtractedParagraph, ExtractedTableCell, OCRResult, cleanOCRText } from './ocr';
+import { OCREngineType, VisionAIConfig } from '../types';
 
-export type OCREngineType = 'ollama' | 'trocr' | 'gemini' | 'tesseract';
-
-export interface VisionAIConfig {
-  engine: OCREngineType;
-  ollamaEndpoint: string;
-  ollamaModel: string;
-  geminiApiKey: string;
-}
+export { cleanOCRText };
+export type { OCREngineType, VisionAIConfig };
 
 export const DEFAULT_VISION_CONFIG: VisionAIConfig = {
   engine: 'tesseract',
@@ -95,42 +90,6 @@ Transcribe all handwritten and printed text from this image faithfully and accur
 }
 
 /**
- * Run Microsoft TrOCR in-browser using Transformers.js (WebGPU/WASM).
- */
-export async function runTrOCROCR(
-  canvas: HTMLCanvasElement,
-  onProgress?: (val: number, status: string) => void
-): Promise<OCRResult> {
-  onProgress?.(0.2, 'Loading in-browser neural handwriting model...');
-
-  try {
-    const { pipeline, env } = await import('@huggingface/transformers');
-    env.allowLocalModels = false;
-
-    onProgress?.(0.4, 'Initializing neural pipeline...');
-    const ocr = await pipeline('image-to-text', 'Xenova/trocr-small-handwritten', {
-      progress_callback: (progressInfo: any) => {
-        if (progressInfo.status === 'progress') {
-          const p = Math.round(progressInfo.progress || 0);
-          onProgress?.(0.4 + (p / 100) * 0.3, `Downloading neural weights: ${p}%`);
-        }
-      },
-    });
-
-    onProgress?.(0.75, 'Transcribing handwriting with Vision Transformer...');
-    const dataUrl = canvas.toDataURL('image/png');
-    const output: any = await ocr(dataUrl);
-    const transcribedText = output?.[0]?.generated_text || '';
-
-    onProgress?.(0.95, 'Structuring recognized text...');
-    return parseMarkdownToOCRResult(transcribedText, canvas);
-  } catch (err: any) {
-    console.warn('TrOCR browser model execution warning:', err);
-    throw new Error(`TrOCR failed: ${err.message || err}`);
-  }
-}
-
-/**
  * Optional Bring-Your-Own-Key Gemini Vision API for instant cloud handwriting transcription.
  */
 export async function runGeminiVisionOCR(
@@ -187,7 +146,7 @@ Transcribe all handwritten and printed text in this image with 100% faithfulness
  * Runs the best pipeline under the hood automatically:
  * 1. Checks if local Ollama (with Qwen2.5-VL / vision model) is running.
  * 2. Checks if Gemini API key is configured.
- * 3. Otherwise runs the in-browser neural engine with 2x super-resolution and character healing.
+ * 3. Otherwise runs the in-browser neural engine with 2.5x super-resolution and character healing.
  */
 export async function runSmartAutoOCR(
   canvas: HTMLCanvasElement,
@@ -232,7 +191,7 @@ export async function runSmartAutoOCR(
     }
   }
 
-  // 3. In-Browser Neural Engine with Character Healing
+  // 3. High-Resolution On-Device Engine with Character Healing
   onProgress?.(0.3, 'Deciphering handwriting & structuring paragraphs...');
   const { runDirectTesseractOCR } = await import('./ocr');
   return await runDirectTesseractOCR(canvas, onProgress);

@@ -117,6 +117,37 @@ npm run preview
 
 ---
 
+## 🚀 Getting Started & Deployment
+
+### Local Development
+```bash
+# Install dependencies
+npm install
+
+# Start Vite dev server
+npm run dev
+
+# Run unit tests
+npm test
+
+# Build production bundle
+npm run build
+```
+
+### 🐳 Docker Deployment
+You can deploy NoteMorph in a production container in seconds:
+
+```bash
+# Build and run with Docker Compose (serves on http://localhost:3000)
+docker compose up -d --build
+
+# Or build and run with Docker directly:
+docker build -t notemorph .
+docker run -d -p 3000:80 --name notemorph-app notemorph
+```
+
+---
+
 ## ⌨️ Keyboard Shortcuts
 
 | Shortcut | Action |

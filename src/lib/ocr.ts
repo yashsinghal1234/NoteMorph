@@ -7,7 +7,7 @@ import {
   OCRResult,
   VisionAIConfig,
 } from '../types';
-import { runOllamaOCR, runTrOCROCR, runGeminiVisionOCR, runSmartAutoOCR } from './visionAi';
+import { runOllamaOCR, runGeminiVisionOCR, runSmartAutoOCR } from './visionAi';
 
 // Re-export types for backward compatibility
 export type { ExtractedOCRWord, ExtractedParagraph, ExtractedTableCell, OCRResult };
