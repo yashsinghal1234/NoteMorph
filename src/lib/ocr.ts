@@ -1,8 +1,10 @@
 import { createWorker } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Point PDF.js worker to standard CDN matching pdfjs-dist
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Local-first PDF worker: served locally from /pdf.worker.min.js (100% offline & privacy-first)
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('/pdf.worker.min.js', window.location.origin).href;
+}
 
 export interface ExtractedOCRWord {
   text: string;
@@ -70,10 +72,13 @@ export async function processDocumentOCR(
     URL.revokeObjectURL(imgUrl);
   }
 
-  onProgress?.(0.3, 'Initializing OCR engine...');
+  onProgress?.(0.3, 'Pre-processing image for maximum OCR contrast...');
+  preprocessCanvas(canvas);
+
+  onProgress?.(0.4, 'Initializing OCR engine...');
   const worker = await createWorker('eng');
 
-  onProgress?.(0.5, 'Recognizing text and positions...');
+  onProgress?.(0.6, 'Recognizing text and positions...');
   const ret = await worker.recognize(canvas);
   await worker.terminate();
 
@@ -97,6 +102,32 @@ export async function processDocumentOCR(
     width: canvas.width,
     height: canvas.height,
   };
+}
+
+/**
+ * Image preprocessing to boost OCR character recognition on scans and photos.
+ * Enhances contrast and binarizes extreme tones so Tesseract can cleanly separate ink from paper.
+ */
+function preprocessCanvas(canvas: HTMLCanvasElement) {
+  try {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imgData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      // Adaptive contrast stretching: push paper background to clean white
+      const enhanced = gray > 185 ? 255 : gray < 75 ? 0 : (gray - 75) * (255 / 110);
+      const clamped = Math.max(0, Math.min(255, enhanced));
+      data[i] = clamped;
+      data[i + 1] = clamped;
+      data[i + 2] = clamped;
+    }
+    ctx.putImageData(imgData, 0, 0);
+  } catch (e) {
+    console.warn('Canvas preprocessing skipped:', e);
+  }
 }
 
 /**
