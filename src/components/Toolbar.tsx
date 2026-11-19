@@ -4,11 +4,14 @@ import {
   Hand,
   Pencil,
   Square,
+  Diamond,
   Circle,
   Triangle,
   MoveRight,
   Minus,
   Type,
+  StickyNote,
+  Eraser,
   Table,
   Undo2,
   Redo2,
@@ -110,19 +113,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
       <div className="w-[1px] h-6 bg-slate-200 mx-1" />
 
-      {/* Drawing & Shapes */}
+      {/* Drawing & Shapes - Excalidraw Style Ordering */}
       <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-lg">
-        <button
-          title="Pencil (Auto-snaps to geometric shapes!) (P)"
-          onClick={() => setTool('draw')}
-          className={`p-2 rounded-md transition-all ${
-            tool === 'draw'
-              ? 'bg-white text-blue-600 shadow-sm font-medium'
-              : 'hover:bg-slate-200/60 text-slate-600'
-          }`}
-        >
-          <Pencil className="w-4 h-4" />
-        </button>
         <button
           title="Rectangle (R)"
           onClick={() => setTool('rect')}
@@ -135,6 +127,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <Square className="w-4 h-4" />
         </button>
         <button
+          title="Diamond (D)"
+          onClick={() => setTool('diamond')}
+          className={`p-2 rounded-md transition-all ${
+            tool === 'diamond'
+              ? 'bg-white text-blue-600 shadow-sm font-medium'
+              : 'hover:bg-slate-200/60 text-slate-600'
+          }`}
+        >
+          <Diamond className="w-4 h-4" />
+        </button>
+        <button
           title="Circle / Ellipse (O)"
           onClick={() => setTool('circle')}
           className={`p-2 rounded-md transition-all ${
@@ -144,17 +147,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           }`}
         >
           <Circle className="w-4 h-4" />
-        </button>
-        <button
-          title="Triangle"
-          onClick={() => setTool('triangle')}
-          className={`p-2 rounded-md transition-all ${
-            tool === 'triangle'
-              ? 'bg-white text-blue-600 shadow-sm font-medium'
-              : 'hover:bg-slate-200/60 text-slate-600'
-          }`}
-        >
-          <Triangle className="w-4 h-4" />
         </button>
         <button
           title="Arrow (A)"
@@ -179,7 +171,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <Minus className="w-4 h-4" />
         </button>
         <button
-          title="Text Card (T)"
+          title="Pencil / Draw (P)"
+          onClick={() => setTool('draw')}
+          className={`p-2 rounded-md transition-all ${
+            tool === 'draw'
+              ? 'bg-white text-blue-600 shadow-sm font-medium'
+              : 'hover:bg-slate-200/60 text-slate-600'
+          }`}
+        >
+          <Pencil className="w-4 h-4" />
+        </button>
+        <button
+          title="Text (T)"
           onClick={() => setTool('text')}
           className={`p-2 rounded-md transition-all ${
             tool === 'text'
@@ -188,6 +191,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           }`}
         >
           <Type className="w-4 h-4" />
+        </button>
+        <button
+          title="Sticky Note (N)"
+          onClick={() => setTool('sticky')}
+          className={`p-2 rounded-md transition-all ${
+            tool === 'sticky'
+              ? 'bg-white text-amber-600 shadow-sm font-medium'
+              : 'hover:bg-slate-200/60 text-slate-600'
+          }`}
+        >
+          <StickyNote className="w-4 h-4 text-amber-500" />
+        </button>
+        <button
+          title="Eraser (E)"
+          onClick={() => setTool('eraser')}
+          className={`p-2 rounded-md transition-all ${
+            tool === 'eraser'
+              ? 'bg-white text-rose-600 shadow-sm font-medium'
+              : 'hover:bg-slate-200/60 text-slate-600'
+          }`}
+        >
+          <Eraser className="w-4 h-4" />
         </button>
       </div>
 

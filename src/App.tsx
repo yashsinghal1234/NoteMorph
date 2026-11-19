@@ -131,6 +131,9 @@ export function App() {
         case 'r':
           setTool('rect');
           break;
+        case 'd':
+          setTool('diamond');
+          break;
         case 'o':
           setTool('circle');
           break;
@@ -142,6 +145,12 @@ export function App() {
           break;
         case 't':
           setTool('text');
+          break;
+        case 'n':
+          setTool('sticky');
+          break;
+        case 'e':
+          setTool('eraser');
           break;
       }
     };

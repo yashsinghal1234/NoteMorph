@@ -47,6 +47,19 @@ describe('Shape Recognizer Engine', () => {
     expect(recognized?.type).toBe('rect');
   });
 
+  it('recognizes a drawn flowchart diamond', () => {
+    const points: [number, number][] = [
+      [100, 50], [125, 75], [150, 100],
+      [125, 125], [100, 150],
+      [75, 125], [50, 100],
+      [75, 75], [100, 50]
+    ];
+
+    const recognized = recognizeStroke(points);
+    expect(recognized).not.toBeNull();
+    expect(recognized?.type).toBe('diamond');
+  });
+
   it('recognizes a closed triangle', () => {
     const points: [number, number][] = [
       [100, 50], [125, 100], [150, 150],

@@ -1,5 +1,5 @@
 export interface RecognizedShape {
-  type: 'line' | 'arrow' | 'rect' | 'circle' | 'triangle';
+  type: 'line' | 'arrow' | 'rect' | 'diamond' | 'circle' | 'triangle';
   x: number;
   y: number;
   width: number;
@@ -110,6 +110,16 @@ export function recognizeStroke(rawPoints: [number, number][]): RecognizedShape 
     }
 
     if (cornerCount >= 4 && cornerCount <= 6) {
+      // Area of diamond is 0.5 * w * h, while rectangle is ~1.0 * w * h
+      if (area < width * height * 0.65 && area > width * height * 0.35) {
+        return {
+          type: 'diamond',
+          x: minX,
+          y: minY,
+          width,
+          height,
+        };
+      }
       return {
         type: 'rect',
         x: minX,

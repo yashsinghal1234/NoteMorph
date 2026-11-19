@@ -5,10 +5,12 @@ export type ToolMode =
   | 'line'
   | 'arrow'
   | 'rect'
+  | 'diamond'
   | 'circle'
   | 'triangle'
   | 'text'
   | 'sticky'
+  | 'eraser'
   | 'table';
 
 export interface CellRecord {
@@ -30,7 +32,7 @@ export interface CellRecord {
 
 export interface ShapeRecord {
   id: string;              // UUID
-  type: 'line' | 'arrow' | 'rect' | 'circle' | 'triangle' | 'freehand' | 'text' | 'sticky';
+  type: 'line' | 'arrow' | 'rect' | 'diamond' | 'circle' | 'triangle' | 'freehand' | 'text' | 'sticky';
   x: number;               // World coordinate
   y: number;
   width: number;

@@ -20,7 +20,10 @@
   background-position: var(--grid-offset-x, 0px) var(--grid-offset-y, 0px);
 }
 
-/* Spreadsheet subtle cell borders */
+/* Handwritten font for Excalidraw-like aesthetic */
+.font-handwritten {
+  font-family: 'Patrick Hand', 'Caveat', 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif;
+}
 .cell-border {
   border-right: 1px solid #e2e8f0;
   border-bottom: 1px solid #e2e8f0;
