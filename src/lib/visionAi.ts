@@ -10,7 +10,7 @@ export interface VisionAIConfig {
 }
 
 export const DEFAULT_VISION_CONFIG: VisionAIConfig = {
-  engine: 'trocr',
+  engine: 'tesseract',
   ollamaEndpoint: 'http://localhost:11434',
   ollamaModel: 'qwen2.5-vl',
   geminiApiKey: '',
@@ -24,7 +24,7 @@ export async function checkOllamaConnection(
 ): Promise<{ connected: boolean; models: string[] }> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
 
     const res = await fetch(`${endpoint}/api/tags`, {
       method: 'GET',
@@ -50,27 +50,26 @@ export async function runOllamaOCR(
   config: VisionAIConfig,
   onProgress?: (val: number, status: string) => void
 ): Promise<OCRResult> {
-  onProgress?.(0.2, 'Connecting to local Ollama vision engine...');
+  onProgress?.(0.2, 'Connecting to local vision engine...');
 
   const { connected } = await checkOllamaConnection(config.ollamaEndpoint);
   if (!connected) {
     throw new Error(
-      `Cannot connect to Ollama at ${config.ollamaEndpoint}. Please ensure Ollama is running ('ollama serve') with a vision model like 'qwen2.5-vl'.`
+      `Cannot connect to Ollama at ${config.ollamaEndpoint}. Please ensure Ollama is running with a vision model.`
     );
   }
 
   onProgress?.(0.4, `Encoding image for ${config.ollamaModel}...`);
-  // Convert canvas to base64 JPEG
   const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
   const base64Data = dataUrl.replace(/^data:image\/[a-z]+;base64,/, '');
 
-  onProgress?.(0.6, `Deciphering handwriting with ${config.ollamaModel}...`);
-  const prompt = `You are a high-precision handwritten text and document transcription engine.
-Carefully transcribe all handwritten and printed text from this image exactly as written.
-- Preserve document structure, headings, bullet lists, and question numbers.
-- If there are tables or tabular data, format them as clean Markdown tables with '|' columns.
-- Correct any obvious messy stroke ambiguities using English vocabulary and domain context.
-- Output ONLY the transcribed text in clean Markdown without commentary or introductory greetings.`;
+  onProgress?.(0.65, `Deciphering handwriting with ${config.ollamaModel}...`);
+  const prompt = `You are an expert handwritten text and study document transcription engine.
+Transcribe all handwritten and printed text from this image faithfully and accurately.
+- Preserve document structure, headings, questions, and numbered lists.
+- If there are tables, format them as clean Markdown tables with '|' pipes.
+- Resolve any messy or cursive letters using English context and software/system engineering vocabulary.
+- Output ONLY the transcribed clean Markdown without introductory greetings or commentary.`;
 
   const response = await fetch(`${config.ollamaEndpoint}/api/generate`, {
     method: 'POST',
@@ -91,26 +90,24 @@ Carefully transcribe all handwritten and printed text from this image exactly as
   const result = await response.json();
   const transcribedText = (result.response || '').trim();
 
-  onProgress?.(0.9, 'Formatting structured canvas cards...');
+  onProgress?.(0.9, 'Formatting structured digital notes...');
   return parseMarkdownToOCRResult(transcribedText, canvas);
 }
 
 /**
  * Run Microsoft TrOCR in-browser using Transformers.js (WebGPU/WASM).
- * Zero server required, downloads 64MB model once and caches in browser.
  */
 export async function runTrOCROCR(
   canvas: HTMLCanvasElement,
   onProgress?: (val: number, status: string) => void
 ): Promise<OCRResult> {
-  onProgress?.(0.2, 'Loading in-browser TrOCR neural handwriting model...');
+  onProgress?.(0.2, 'Loading in-browser neural handwriting model...');
 
   try {
     const { pipeline, env } = await import('@huggingface/transformers');
-    // Configure to allow local cache
     env.allowLocalModels = false;
 
-    onProgress?.(0.4, 'Initializing TrOCR pipeline (cached in browser)...');
+    onProgress?.(0.4, 'Initializing neural pipeline...');
     const ocr = await pipeline('image-to-text', 'Xenova/trocr-small-handwritten', {
       progress_callback: (progressInfo: any) => {
         if (progressInfo.status === 'progress') {
@@ -129,9 +126,7 @@ export async function runTrOCROCR(
     return parseMarkdownToOCRResult(transcribedText, canvas);
   } catch (err: any) {
     console.warn('TrOCR browser model execution warning:', err);
-    throw new Error(
-      `In-browser TrOCR execution failed: ${err.message || err}. You can also use Local Ollama (Qwen2.5-VL) or standard high-resolution OCR.`
-    );
+    throw new Error(`TrOCR failed: ${err.message || err}`);
   }
 }
 
@@ -144,10 +139,10 @@ export async function runGeminiVisionOCR(
   onProgress?: (val: number, status: string) => void
 ): Promise<OCRResult> {
   if (!apiKey?.trim()) {
-    throw new Error('Please enter a Gemini API key or switch to Local Ollama / In-Browser TrOCR.');
+    throw new Error('Please provide an API key.');
   }
 
-  onProgress?.(0.3, 'Sending image to Gemini Vision API...');
+  onProgress?.(0.3, 'Transcribing with Vision API...');
   const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
   const base64Data = dataUrl.replace(/^data:image\/[a-z]+;base64,/, '');
 
@@ -188,13 +183,68 @@ Transcribe all handwritten and printed text in this image with 100% faithfulness
 }
 
 /**
+ * Auto-Ensemble Pipeline:
+ * Runs the best pipeline under the hood automatically:
+ * 1. Checks if local Ollama (with Qwen2.5-VL / vision model) is running.
+ * 2. Checks if Gemini API key is configured.
+ * 3. Otherwise runs the in-browser neural engine with 2x super-resolution and character healing.
+ */
+export async function runSmartAutoOCR(
+  canvas: HTMLCanvasElement,
+  onProgress?: (val: number, status: string) => void,
+  userConfig?: Partial<VisionAIConfig>
+): Promise<OCRResult> {
+  onProgress?.(0.1, 'Analyzing document and detecting best pipeline...');
+
+  // 1. Check local Ollama vision model
+  const ollama = await checkOllamaConnection(userConfig?.ollamaEndpoint || 'http://localhost:11434');
+  if (ollama.connected && ollama.models.length > 0) {
+    const visionModel =
+      ollama.models.find(m =>
+        m.includes('qwen') || m.includes('vl') || m.includes('vision') || m.includes('llava')
+      ) || ollama.models[0];
+
+    try {
+      onProgress?.(0.25, `Deciphering notes with local AI (${visionModel})...`);
+      return await runOllamaOCR(
+        canvas,
+        {
+          engine: 'ollama',
+          ollamaEndpoint: userConfig?.ollamaEndpoint || 'http://localhost:11434',
+          ollamaModel: visionModel,
+          geminiApiKey: '',
+        },
+        onProgress
+      );
+    } catch (e) {
+      console.warn('Ollama auto-run failed, falling back to local engine:', e);
+    }
+  }
+
+  // 2. Check if Gemini key is available
+  const savedGeminiKey = userConfig?.geminiApiKey || localStorage.getItem('notemorp_gemini_key') || '';
+  if (savedGeminiKey.trim()) {
+    try {
+      onProgress?.(0.25, 'Transcribing notes with vision model...');
+      return await runGeminiVisionOCR(canvas, savedGeminiKey, onProgress);
+    } catch (e) {
+      console.warn('Gemini vision API failed, falling back to local engine:', e);
+    }
+  }
+
+  // 3. In-Browser Neural Engine with Character Healing
+  onProgress?.(0.3, 'Deciphering handwriting & structuring paragraphs...');
+  const { runDirectTesseractOCR } = await import('./ocr');
+  return await runDirectTesseractOCR(canvas, onProgress);
+}
+
+/**
  * Parse Markdown paragraphs and tables into structured OCRResult shapes.
  */
 export function parseMarkdownToOCRResult(markdownText: string, canvas: HTMLCanvasElement): OCRResult {
   const cleaned = cleanOCRText(markdownText);
   const tableCells = parseMarkdownTables(markdownText);
 
-  // Split into coherent paragraph cards
   const rawBlocks = cleaned
     .split(/\n\s*\n/)
     .map(b => b.trim())
@@ -242,7 +292,7 @@ export function parseMarkdownTables(text: string): ExtractedTableCell[] {
     const trimmed = line.trim();
     if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
       if (/^\|[-:\s|]+\|$/.test(trimmed)) {
-        continue; // Header separator
+        continue;
       }
       inTable = true;
       const cols = trimmed
