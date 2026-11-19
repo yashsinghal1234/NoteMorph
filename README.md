@@ -52,11 +52,15 @@ People doing real thinking switch constantly between two tools that don’t talk
 * **Excel Compatibility**: Supports 400+ spreadsheet functions (`=SUM(A1:A10)`, `=AVERAGE(...)`, mathematical operators, and relational cell references).
 * **Integrated Formula Bar**: `fx` bar for live cell inspections and formula editing.
 
-### 📄 4. In-Browser OCR & Table Ingestion
-* **Privacy-First / 100% On-Device**: Upload PDFs, scans, receipts, or meeting whiteboard photos.
-* **Zero Server Uploads**: `pdfjs-dist` renders pages into WebAssembly-powered `tesseract.js` Web Workers directly inside your browser.
-* **Spatial Table Clustering**: Automatically groups word bounding boxes by horizontal line overlap and vertical gutters to reconstruct structured table rows and columns.
-* **Flexible Destination**: Choose between importing directly into **Spreadsheet Grid Cells** or as **Spatial Text Cards** on the canvas.
+### 📄 4. Multi-Engine OCR & Handwritten Note Digitalization
+* **100% Privacy-First & Local**: Convert messy handwriting, study sheets, whiteboard sketches, and receipts into editable digital text and tables with zero third-party data tracking.
+* **Multi-Engine Pipeline**:
+  * **TrOCR In-Browser (Transformers.js)**: Runs Microsoft's Vision Transformer handwriting model directly inside the browser using WebGPU/WASM with zero server setup.
+  * **Local Ollama Integration (Qwen2.5-VL)**: One-click local connection to state-of-the-art vision models running on `localhost:11434` for 98%+ accuracy on messy cursive and complex layouts.
+  * **Fast Tesseract**: Instant local OCR fallback with 2x dynamic super-resolution and dictionary healing heuristics (`diaqram` $\to$ `diagram`, `inq` $\to$ `ing`).
+  * **Cloud Vision (BYOK)**: Optional bring-your-own-key Gemini 2.0 Flash integration for instant cloud transcription.
+* **Intelligent Document Restructuring**: Outputs clean, structured paragraph section cards (`640px` width) or unified document notes rather than disconnected word boxes.
+* **Spatial Table Detection**: Reconstructs Markdown and tabular data into live calculating spreadsheet grid cells.
 
 ### 🔒 5. Local-First & Collaborative (CRDT)
 * **Offline-First Persistence**: All cell edits, vector shapes, and canvas states are instantly persisted to **IndexedDB** using **Yjs**.
